@@ -1,3 +1,15 @@
+# ByteTrack
+loguru
+scikit-image
+thop
+ninja
+lap
+filterpy
+h5py
+onnx==1.8.1
+onnxruntime==1.8.0
+onnx-simplifier==0.3.5
+# DCPose
 absl-py==0.10.0
 attrs==20.2.0
 cachetools==4.1.1
@@ -20,7 +32,7 @@ Markdown==3.3
 matplotlib==3.3.2
 mccabe==0.6.1
 motmetrics==1.2.0
-numpy==1.19.2
+numpy
 oauthlib==3.1.0
 opencv-python==4.4.0.44
 packaging==20.4
@@ -54,8 +66,6 @@ tensorboard-plugin-wit==1.7.0
 tensorboardX==2.1
 termcolor==1.1.0
 toml==0.10.1
-torch==1.4.0
-torchvision==0.5.0
 tqdm==4.49.0
 urllib3==1.25.10
 Werkzeug==1.0.1
