@@ -121,15 +121,20 @@ def inference_PE_batch(model, device, input_image_list: list, prev_image_list: l
     
     current_video = 0
     change_idx = 0
-    for pose_idx, pose in enumerate(pred_keypoints):
-        video_offset = pose_idx - change_idx
-        if video_offset >= len(bbox_list[current_video]):
-            video_offset = 0
-            current_video += 1
-            change_idx = pose_idx
-        
+    pose_idx = 0
+    while pose_idx < len(pred_keypoints):
+      pose = pred_keypoints[pose_idx]
+
+      video_offset = pose_idx - change_idx
+      if video_offset >= len(bbox_list[current_video]):
+        video_offset = 0
+        current_video += 1
+        change_idx = pose_idx
+        continue 
+      else:
         pose_result = bbox_list[current_video][video_offset].copy()
         pose_result['keypoints'] = pose
         pose_results[current_video].append(pose_result)
+        pose_idx += 1
 
     return pose_results

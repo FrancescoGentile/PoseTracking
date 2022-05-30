@@ -276,7 +276,7 @@ def main():
         curr.append(None)
         nxt.append(None)
         
-    next_video_idx = max(len(input_files), BATCH_SIZE) + 1
+    next_video_idx = min(len(input_files), BATCH_SIZE) + 1
     
     while True:
         index = 0
@@ -305,7 +305,7 @@ def main():
                                       'label': labels[video_id]['annotations']['label'], 
                                       'frames': [] }
                     
-                    tqdms.append(tqdm(total=len(video), desc=file, position=next_video_idx, ncols=100, initial=0))
+                    tqdms[index] = tqdm(total=len(video), desc=file, position=next_video_idx, ncols=100, initial=0)
                     
                     # update counter
                     next_video_idx += 1
