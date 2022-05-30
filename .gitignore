@@ -1,0 +1,9 @@
+thirdparty/deform_conv/build/
+thirdparty/deform_conv/deform_conv.egg-info/
+thirdparty/deform_conv/deform_conv_cuda.cpython-37m-x86_64-linux-gnu.so
+thirdparty/deform_conv/deform_pool_cuda.cpython-37m-x86_64-linux-gnu.so
+input
+output
+**/__pycache__
+DcPose_supp_files
+pretrained
