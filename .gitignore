@@ -9,3 +9,6 @@ DcPose_supp_files
 pretrained
 exec.sh
 test.json
+yolox.egg-info
+yolox/*.so
+build
