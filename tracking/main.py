@@ -4,6 +4,7 @@
 
 import argparse
 import dask
+from dask.distributed import Client
 
 from sequence import SequenceLoader
 from detection import Detector
@@ -36,6 +37,7 @@ def main():
     args = parser.parse_args()
     
     dask.config.set(scheduler='threads')
+    #client = Client(processes=False)
     
     sequence_loader = SequenceLoader(args.input, args.output, args.labels, args.batch)
     detector = Detector(args.exp_file, args.ckpt, args.device)

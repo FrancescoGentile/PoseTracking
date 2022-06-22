@@ -2,14 +2,12 @@
 #
 #
 
-import sys
-sys.path.insert(1, '../')
-
 import os
 import cv2
 import numpy as np
 import torch
 import dask
+from numba import njit
 
 from datasets.process import get_affine_transform
 from datasets.transforms import build_transforms
@@ -18,7 +16,6 @@ from posetimation.zoo import build_model
 from posetimation.config import get_cfg, update_config
 from utils.utils_bbox import box2cs
 from utils.common import INFERENCE_PHASE
-
 
 class PoseEstimator: 
     
@@ -68,15 +65,18 @@ class PoseEstimator:
         batch_center = []
         batch_scale = []
         pose_results = []
+        idx_offset = []
     
         for video_index in range(videos_size):
-            pose_results.append([])
+            pose_results.append([None] * len(bboxes[video_index]))
             input_image = curr_frames[video_index]
             prev_image = prev_frames[video_index]
             next_image = next_frames[video_index]
         
-            for info in bboxes[video_index]:
-                bbox = info['bbox']
+            for idx, info in enumerate(bboxes[video_index]):
+                #bbox = info['bbox']
+                bbox = info[1]
+                idx_offset.append((video_index, idx))
             
                 center, scale = box2cs(bbox[0:4], self.aspect_ratio)
                 batch_center.append(center)
@@ -90,12 +90,14 @@ class PoseEstimator:
                 next_image_data = dask.delayed(torch.unsqueeze)(next_image_data, 0)
                 
                 one_sample_input = dask.delayed(torch.cat)([target_image_data, prev_image_data, next_image_data])
-                margin = torch.stack([torch.tensor(1).unsqueeze(0), torch.tensor(1).unsqueeze(0)], dim=1)
+                margin = dask.delayed(torch.stack)([torch.tensor(1).unsqueeze(0), torch.tensor(1).unsqueeze(0)], dim=1)
+                #margin = torch.stack([torch.tensor(1).unsqueeze(0), torch.tensor(1).unsqueeze(0)], dim=1)
 
                 batch_input.append(one_sample_input)
                 batch_margin.append(margin)
         
         batch_input = dask.compute(*batch_input)
+        batch_margin = dask.compute(*batch_margin)
     
         if len(batch_input) == 0:
             return pose_results
@@ -109,23 +111,17 @@ class PoseEstimator:
 
         pred_joint, pred_conf = get_final_preds(predictions.cpu().detach().numpy(), batch_center, batch_scale)
         pred_keypoints = np.concatenate([pred_joint.astype(int), pred_conf], axis=2)
+        
+        return PoseEstimator.postprocess_pose(pose_results, pred_keypoints, bboxes, idx_offset)
+
+    @staticmethod
+    #@njit(parallel=True)
+    def postprocess_pose(results: list, poses: list, bboxes: list, idx_offset: list):
+        for pose, (idx, offset) in zip(poses, idx_offset):
+            res = dict()
+            res['track_id'] = bboxes[idx][offset][0]
+            res['bbox'] = bboxes[idx][offset][1]
+            res['keypoints'] = pose
+            results[idx][offset] = res
     
-        current_video = 0
-        change_idx = 0
-        pose_idx = 0
-        while pose_idx < len(pred_keypoints):
-            pose = pred_keypoints[pose_idx]
-
-            video_offset = pose_idx - change_idx
-            if video_offset >= len(bboxes[current_video]):
-                video_offset = 0
-                current_video += 1
-                change_idx = pose_idx
-                continue 
-            else:
-                pose_result = bboxes[current_video][video_offset].copy()
-                pose_result['keypoints'] = pose
-                pose_results[current_video].append(pose_result)
-                pose_idx += 1
-
-        return pose_results
+        return results

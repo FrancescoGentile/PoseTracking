@@ -2,9 +2,6 @@
 #
 #
 
-import sys
-sys.path.insert(1, '../')
-
 import torch
 import numpy as np
 import dask
@@ -43,12 +40,12 @@ class Predictor(object):
         for img in images:
             height, width = img.shape[:2]
             infos.append([height, width])
-            #img = dask.delayed(preproc)(img, self.test_size, self.rgb_means, self.std)
-            img, _ = preproc(img, self.test_size, self.rgb_means, self.std)
+            img = dask.delayed(preproc)(img, self.test_size, self.rgb_means, self.std)
+            #img, _ = preproc(img, self.test_size, self.rgb_means, self.std)
             images_proc.append(img)
         
-        #images_proc = dask.compute(*images_proc)
-        #images_proc = [img for img, _ in images_proc]
+        images_proc = dask.compute(*images_proc)
+        images_proc = [img for img, _ in images_proc]
         images_proc = np.array(images_proc)
         torch_images = torch.from_numpy(images_proc).float().to(self.device)
         
@@ -104,24 +101,24 @@ class Detector:
         outputs, infos = self.predictor.inference(frames)
         
         for output, info, tracker in zip(outputs, infos, trackers):
-            res = get_bboxes(output, info, tracker, self.exp.test_size)
+            res = dask.delayed(Detector.get_bboxes)(output, info, tracker, self.exp.test_size)
+            #res = Detector.get_bboxes(output, info, tracker, self.exp.test_size)
             results.append(res)
         
+        results = dask.compute(*results)
         return results
 
-def get_bboxes(output, info, tracker, test_size):
-    res = []
-    if output != None:
-        online_targets = tracker.update(output, [info[0], info[1]], test_size)
-        for t in online_targets:
-            tlwh = t.tlwh
-            tid = t.track_id
-            vertical = tlwh[2] / tlwh[3] > ASPECT_RATIO_THRESHOLD
-            if tlwh[2] * tlwh[3] > MIN_BOX_AREA and not vertical:
-                person = {}
-                person['track_id'] = int(tid)
-                person['bbox'] = np.append(tlwh, t.score)
-                res.append(person)
+    @staticmethod
+    def get_bboxes(output, info, tracker, test_size):
+        res = []
+        if output != None:
+            online_targets = tracker.update(output, [info[0], info[1]], test_size)
+            for t in online_targets:
+                tlwh = t.tlwh
+                tid = t.track_id
+                vertical = tlwh[2] / tlwh[3] > ASPECT_RATIO_THRESHOLD
+                if tlwh[2] * tlwh[3] > MIN_BOX_AREA and not vertical:
+                    res.append((int(tid), np.append(tlwh, t.score)))
     
-    return res
+        return res
     
