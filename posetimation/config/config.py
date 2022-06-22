@@ -5,14 +5,11 @@ import os
 from .my_custom import CfgNode
 
 
-def update_config(cfg: CfgNode, args):
+def update_config(cfg: CfgNode, root_dir: str, config_file: str):
     cfg.defrost()
-    cfg.merge_from_file(args.cfg)
-    cfg.merge_from_list(args.opts)
+    cfg.merge_from_file(config_file)
 
-    if args.rootDir:
-        cfg.ROOT_DIR = args.rootDir
-
+    cfg.ROOT_DIR = root_dir
     cfg.OUTPUT_DIR = os.path.abspath(os.path.join(cfg.ROOT_DIR, cfg.OUTPUT_DIR))
 
     cfg.DATASET.JSON_DIR = os.path.abspath(os.path.join(cfg.ROOT_DIR, cfg.DATASET.JSON_DIR))
@@ -30,7 +27,7 @@ def update_config(cfg: CfgNode, args):
     cfg.freeze()
 
 
-def get_cfg(args) -> CfgNode:
+def get_cfg() -> CfgNode:
     """
         Get a copy of the default config.
         Returns:
