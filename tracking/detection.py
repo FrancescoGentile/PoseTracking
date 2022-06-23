@@ -35,14 +35,13 @@ class Predictor(object):
         self.std = (0.229, 0.224, 0.225)
 
     def inference(self, images):
-        infos = []
-        images_proc = []
-        for img in images:
+        infos = [None] * len(images)
+        images_proc = [None] * len(images) 
+        for idx, img in enumerate(images):
             height, width = img.shape[:2]
-            infos.append([height, width])
-            img = dask.delayed(preproc)(img, self.test_size, self.rgb_means, self.std)
-            #img, _ = preproc(img, self.test_size, self.rgb_means, self.std)
-            images_proc.append(img)
+            infos[idx] = [height, width]
+            # Preprocessing is much faster using parallelization
+            images_proc[idx] = dask.delayed(preproc)(img, self.test_size, self.rgb_means, self.std)
         
         images_proc = dask.compute(*images_proc)
         images_proc = [img for img, _ in images_proc]
@@ -63,9 +62,10 @@ class Predictor(object):
 
 class Detector: 
     
-    def __init__(self, exp_file: str, checkpoint: str, device: str) -> None:
+    def __init__(self, exp_file: str, checkpoint: str, device: str, maxp: int) -> None:
         self.predictor = self.create_predictor(exp_file, checkpoint, device)
         self.trackers = {}
+        self.maxp = maxp
         
     def create_predictor(self, exp_file: str, checkpoint: str, device: str): 
         self.exp = get_exp(exp_file, None)
@@ -96,16 +96,16 @@ class Detector:
         return res
     
     def detect(self, frames: list, ids: list):
+        results = [None] * len(frames)
         trackers = self.get_trackers(ids)
-        results = []
-        outputs, infos = self.predictor.inference(frames)
         
-        for output, info, tracker in zip(outputs, infos, trackers):
-            res = dask.delayed(Detector.get_bboxes)(output, info, tracker, self.exp.test_size)
-            #res = Detector.get_bboxes(output, info, tracker, self.exp.test_size)
-            results.append(res)
-        
-        results = dask.compute(*results)
+        num = len(frames)
+        for i in range(0, num, self.maxp):
+            outputs, infos = self.predictor.inference(frames[i:min(i+self.maxp, num)])
+            for idx, (output, info, tracker) in enumerate(zip(outputs, infos, trackers)):
+                # This is faster in sequence (non parallel)
+                results[i + idx] = Detector.get_bboxes(output, info, tracker, self.exp.test_size)
+
         return results
 
     @staticmethod

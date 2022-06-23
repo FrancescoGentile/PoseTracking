@@ -3,21 +3,24 @@
 #
 
 import argparse
+import math
 import dask
-from dask.distributed import Client
+from concurrent.futures import ThreadPoolExecutor
 
 from sequence import SequenceLoader
 from detection import Detector
 from pose import PoseEstimator
 
+import nvidia_smi
+
 def make_parser():
     parser = argparse.ArgumentParser("Pose tracking")
     
-    parser.add_argument('--input', type=str, help='path to the directory with the videos')
-    parser.add_argument('--labels', type=str, help='path to the json file with the labels')
-    parser.add_argument('--output', default='', help='directory where to save results')
-    parser.add_argument('--device', default='cuda:0', help='device used for inference')
-    parser.add_argument('--batch', type=int, default='5', help='number of videos processed simultaneously')
+    parser.add_argument('--input', type=str, required=True, help='path to the directory with the videos')
+    parser.add_argument('--labels', type=str, required=True, help='path to the json file with the labels')
+    parser.add_argument('--output', default='', required=True, help='directory where to save results')
+    parser.add_argument('--device', default='0', help='gpu device used for inference')
+    parser.add_argument('--batch', type=int, required=True, help='number of videos processed simultaneously')
 
     # BYTETrack
     parser.add_argument('-f', '--exp-file', default=None, type=str, help='your experiment description file',)
@@ -32,30 +35,37 @@ def make_parser():
     
     return parser
 
+def get_available_memory(device):
+    nvidia_smi.nvmlInit()
+
+    handle = nvidia_smi.nvmlDeviceGetHandleByIndex(device)
+    info = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
+    total = info.free
+
+    nvidia_smi.nvmlShutdown()
+    
+    return total
+
 def main():
     parser = make_parser()
     args = parser.parse_args()
     
-    dask.config.set(scheduler='threads')
-    #client = Client(processes=False)
+    dask.config.set(pool=ThreadPoolExecutor())
     
-    sequence_loader = SequenceLoader(args.input, args.output, args.labels, args.batch)
-    detector = Detector(args.exp_file, args.ckpt, args.device)
-    pose_estimator = PoseEstimator(args.root_dir, args.cfg, args.weights, args.device)
+    memory = get_available_memory(int(args.device))
+    number = math.floor(memory / 1e9)
+    args.device = 'cuda:' + args.device
     
-    for sequences, ids in sequence_loader:        
-        prev_frames = []
-        curr_frames = []
-        next_frames = []
-        
-        for p, c, n in sequences:
-            prev_frames.append(p)
-            curr_frames.append(c)
-            next_frames.append(n)
-        
-        bboxes = detector.detect(curr_frames, ids)
-        poses = pose_estimator.estimate(prev_frames, curr_frames, next_frames, bboxes)
-        
+    if args.batch > number: 
+        print(f'Ideal batch size should be less than or equal to {number}')
+    
+    sequence_loader = SequenceLoader(args.input, args.output, args.labels, args.batch, True)
+    detector = Detector(args.exp_file, args.ckpt, args.device, number)
+    pose_estimator = PoseEstimator(args.root_dir, args.cfg, args.weights, args.device, number)
+    
+    for prev, curr, nxt, ids in sequence_loader: 
+        bboxes = detector.detect(curr, ids)
+        poses = pose_estimator.estimate(prev, curr, nxt, bboxes) 
         sequence_loader.add_poses(poses)
     
     print('Terminated')

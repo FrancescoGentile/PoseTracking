@@ -65,9 +65,10 @@ def postprocess(prediction, num_classes, conf_thre=0.7, nms_thre=0.45):
     box_corner[:, :, 3] = prediction[:, :, 1] + prediction[:, :, 3] / 2
     prediction[:, :, :4] = box_corner[:, :, :4]
 
-    output = []
-    for image_pred in prediction:
-        output.append(dask.delayed(postprocess_image)(image_pred, num_classes, conf_thre, nms_thre))
+    output = [None] * len(prediction)
+    for idx, image_pred in enumerate(prediction):
+        output[idx] = dask.delayed(postprocess_image)(image_pred, num_classes, conf_thre, nms_thre)
+        #output[idx] = postprocess_image(image_pred, num_classes, conf_thre, nms_thre)
     
     output = dask.compute(*output)
 
