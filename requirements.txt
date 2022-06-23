@@ -1,3 +1,4 @@
+nvidia-ml-py3
 # ByteTrack
 loguru
 scikit-image

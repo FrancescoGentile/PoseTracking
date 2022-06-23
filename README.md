@@ -1,20 +1,21 @@
 # Installation
 
 python 3.7.13
+
 pytorch 1.11.0
+
 CUDA 11.3
 
 ## Setup
 
 ```
-conda create --name tracking python=3.7 dask numba -y
+conda create --name tracking python=3.7 dask -y
 conda activate tracking
 conda install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch -y
 pip install gdown
 
 git clone https://github.com/FrancescoGentile/PoseTracking.git
 cd PoseTracking 
-pip install mmcv-full -f https://download.openmmlab.com/mmcv/dist/cu113/torch1.11.0/index.html
 pip install -r requirements.txt
 
 cd thirdparty/deform_conv
