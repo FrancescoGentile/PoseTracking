@@ -102,7 +102,7 @@ class Detector:
         num = len(frames)
         for i in range(0, num, self.maxp):
             outputs, infos = self.predictor.inference(frames[i:min(i+self.maxp, num)])
-            for idx, (output, info, tracker) in enumerate(zip(outputs, infos, trackers)):
+            for idx, (output, info, tracker) in enumerate(zip(outputs, infos, trackers[i:min(i+self.maxp, num)])):
                 # This is faster in sequence (non parallel)
                 results[i + idx] = Detector.get_bboxes(output, info, tracker, self.exp.test_size)
 

@@ -19,7 +19,7 @@ def make_parser():
     parser.add_argument('--input', type=str, required=True, help='path to the directory with the videos')
     parser.add_argument('--labels', type=str, required=True, help='path to the json file with the labels')
     parser.add_argument('--output', default='', required=True, help='directory where to save results')
-    parser.add_argument('--device', default='0', help='gpu device used for inference')
+    parser.add_argument('--device', type=int, default=0, help='gpu device used for inference')
     parser.add_argument('--batch', type=int, required=True, help='number of videos processed simultaneously')
 
     # BYTETrack
@@ -52,9 +52,9 @@ def main():
     
     dask.config.set(pool=ThreadPoolExecutor())
     
-    memory = get_available_memory(int(args.device))
+    memory = get_available_memory(args.device)
     number = math.floor(memory / 1e9)
-    args.device = 'cuda:' + args.device
+    args.device = 'cuda:' + str(args.device)
     
     if args.batch > number: 
         print(f'Ideal batch size should be less than or equal to {number}')
